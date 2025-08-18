@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>El Primo Chess</title>
+    <link rel="stylesheet" href="styles_home.css">
+</head>
+<body>
+    <div class="home-container">
+        <div class="decorative-pieces">♛♜♝♞</div>
+        <div class="decorative-pieces-left">*El Primo Chess</div>
+       
+        <h1 class="title">♛ Chess* ♛</h1>
+        <p class="subtitle">Choose your side and begin the battle!</p>
+       
+        <div class="game-options">
+            <label class="option-label">Select Your Side:</label>
+           
+            <div class="side-selection">
+                <div class="side-option" id="whiteOption" onclick="selectSide('white')">
+                    <div class="piece">♔</div>
+                    <div class="label">Play as White</div>
+                </div>
+               
+                <div class="side-option" id="blackOption" onclick="selectSide('black')">
+                    <div class="piece">♚</div>
+                    <div class="label">Play as Black</div>
+                </div>
+            </div>
+        </div>
+       
+        <button class="play-button" id="playButton" onclick="startGame()">
+            ⚔️ Start Game ⚔️
+        </button>
+    </div>
+    
+    <script src="script.js"></script>
+</body>
+</html>
