@@ -783,7 +783,7 @@ function addMultiplayerButton() {
     
     if (playButton) {
         // Update the existing button text
-        playButton.textContent = '⚔️ Play ⚔️';
+        playButton.textContent = '⚔️ Play Solo ⚔️';
         
         // Create multiplayer button
         const multiplayerButton = document.createElement('button');

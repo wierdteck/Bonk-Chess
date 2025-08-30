@@ -167,8 +167,8 @@ button:active {
 
 @media (max-width: 600px) {
     .chess-board {
-        width: 320px;
-        height: 320px;
+        width: 325px;
+        height: 325px;
     }
     
     .square {
@@ -181,6 +181,50 @@ button:active {
     
     h1 {
         font-size: 2em;
+    }
+}
+@media (max-width: 410px) {
+    .chess-board {
+        width: 245px;
+        height: 245px;
+    }
+    
+    .square {
+        font-size: 1.5em;
+        width: 30px;
+        height: 30px;
+        min-width: 30px;
+        min-height: 30px;
+    }
+    
+    h1 {
+        font-size: 1.5em;
+        margin-bottom: 0px;
+    }
+    .game-info {
+        margin-bottom: 0px;
+    }
+}
+@media (max-width: 340px) {
+    .chess-board {
+        width: 205px;
+        height: 205px;
+    }
+    
+    .square {
+        font-size: 1em;
+        width: 25px;
+        height: 25px;
+        min-width: 25px;
+        min-height: 25px;
+    }
+    
+    h1 {
+        font-size: 1.5em;
+        margin-bottom: 0px;
+    }
+    .game-info {
+        margin-bottom: 0px;
     }
 }
 .multiplayer-info {

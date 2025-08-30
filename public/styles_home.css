@@ -270,4 +270,21 @@ body {
     .play-button{
         font-size: 1em;
     }
+    .side-option:hover {
+        transform: none;
+        box-shadow: none;
+        border-color: #e9ecef;
+    }
+    .play-button:hover {
+        transform: none;
+        box-shadow: 0 8px 25px rgba(102, 126, 234, 0.3);
+    }
+
+    .play-button:hover::before {
+        left: -100%;
+    }
+
+    .play-button:active {
+        transform: none;
+    }
 }
