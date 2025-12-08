@@ -17,11 +17,18 @@
     "type": "git",
     "url": "git+https://github.com/wierdteck/Bonk-Chess.git"
   },
-  "keywords": ["chess", "multiplayer", "game"],
+  "keywords": [
+    "chess",
+    "multiplayer",
+    "game"
+  ],
   "author": "",
   "license": "ISC",
   "bugs": {
     "url": "https://github.com/wierdteck/Bonk-Chess/issues"
   },
-  "homepage": "https://github.com/wierdteck/Bonk-Chess#readme"
+  "homepage": "https://github.com/wierdteck/Bonk-Chess#readme",
+  "dependencies": {
+    "dotenv": "^17.2.3"
+  }
 }
