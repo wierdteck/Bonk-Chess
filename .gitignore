@@ -26,3 +26,4 @@ Enviorment variables
 *.njsproj
 *.sln
 *.sw?
+packages/server/.env.example
