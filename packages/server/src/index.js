@@ -1,19 +1,51 @@
-const express = require('express');
-const { createServer } = require('http');
-const { Server } = require('socket.io');
-const cors = require('cors');
-const { registerUser, loginUser } = require('./auth');
+import express from 'express';
+import { createServer } from 'http';
+import { Server } from 'socket.io';
+import cors from 'cors';
+import session from 'express-session';
+import RedisStore from 'connect-redis';
+import { registerUser, loginUser, getUserById } from './auth.js';
+import { redis } from '../db/redis.js';
 
 const app = express();
 const httpServer = createServer(app);
 
 // CORS configuration
-app.use(cors({
+const corsOptions = {
   origin: process.env.CLIENT_URL || 'http://localhost:5173',
   credentials: true
-}));
+};
 
+app.use(cors(corsOptions));
 app.use(express.json());
+
+// Session configuration with Redis
+const sessionMiddleware = session({
+  store: new RedisStore({ client: redis }),
+  secret: process.env.SESSION_SECRET || 'bonk-chess-secret-change-in-production',
+  resave: false,
+  saveUninitialized: false,
+  cookie: {
+    secure: process.env.NODE_ENV === 'production',
+    httpOnly: true,
+    maxAge: 1000 * 60 * 60 * 24 * 7, // 7 days
+    sameSite: 'lax'
+  }
+});
+
+app.use(sessionMiddleware);
+
+// Socket.IO setup with session support
+const io = new Server(httpServer, {
+  cors: corsOptions
+});
+
+// Share session with Socket.IO
+io.engine.use(sessionMiddleware);
+
+// Game state
+const games = new Map();
+const waitingPlayers = [];
 
 // Authentication routes
 app.post('/api/auth/register', async (req, res) => {
@@ -22,6 +54,10 @@ app.post('/api/auth/register', async (req, res) => {
   const result = await registerUser(username, password, passwordConfirm);
   
   if (result.success) {
+    // Store user in session
+    const user = await getUserById(result.userId);
+    req.session.userId = result.userId;
+    req.session.username = result.username;
     res.json({ success: true, username: result.username });
   } else {
     res.status(400).json({ success: false, error: result.error });
@@ -34,31 +70,58 @@ app.post('/api/auth/login', async (req, res) => {
   const result = await loginUser(username, password);
   
   if (result.success) {
+    // Store user in session
+    req.session.userId = result.userId;
+    req.session.username = result.username;
     res.json({ success: true, username: result.username });
   } else {
     res.status(401).json({ success: false, error: result.error });
   }
 });
 
-// Socket.IO setup
-const io = new Server(httpServer, {
-  cors: {
-    origin: process.env.CLIENT_URL || 'http://localhost:5173',
-    methods: ['GET', 'POST'],
-    credentials: true
-  }
+app.post('/api/auth/logout', (req, res) => {
+  const username = req.session.username;
+  req.session.destroy((err) => {
+    if (err) {
+      console.error('Logout error:', err);
+      return res.status(500).json({ success: false, error: 'Logout failed' });
+    }
+    console.log(`User logged out: ${username}`);
+    res.json({ success: true });
+  });
 });
 
-// Game state
-const games = new Map();
-const waitingPlayers = [];
+app.get('/api/auth/me', async (req, res) => {
+  if (!req.session.userId) {
+    return res.status(401).json({ success: false, error: 'Not authenticated' });
+  }
+  
+  const user = await getUserById(req.session.userId);
+  if (!user) {
+    return res.status(404).json({ success: false, error: 'User not found' });
+  }
+  
+  res.json({ 
+    success: true, 
+    username: user.username,
+    userId: user.id
+  });
+});
 
 // Socket.IO connection handler
 io.on('connection', (socket) => {
-  console.log('User connected:', socket.id);
+  const session = socket.request.session;
+  const username = session?.username;
+  
+  console.log('User connected:', socket.id, username ? `(${username})` : '(guest)');
 
   socket.on('findGame', () => {
-    console.log('Player looking for game:', socket.id);
+    if (!username) {
+      socket.emit('error', 'Must be logged in to play');
+      return;
+    }
+    
+    console.log('Player looking for game:', username);
     
     if (waitingPlayers.length > 0) {
       // Match with waiting player
@@ -67,8 +130,8 @@ io.on('connection', (socket) => {
       
       const game = {
         id: gameId,
-        white: socket.id,
-        black: opponent.id,
+        white: { socketId: socket.id, username },
+        black: { socketId: opponent.id, username: opponent.username },
         board: initializeBoard(),
         currentTurn: 'white',
         moveHistory: []
@@ -82,23 +145,23 @@ io.on('connection', (socket) => {
       socket.emit('gameStart', { 
         gameId, 
         color: 'white',
-        opponent: opponent.id 
+        opponent: opponent.username
       });
       
       opponent.emit('gameStart', { 
         gameId, 
         color: 'black',
-        opponent: socket.id 
+        opponent: username
       });
       
       io.to(gameId).emit('gameState', game);
       
-      console.log(`Game started: ${gameId}`);
+      console.log(`Game started: ${gameId} - ${username} vs ${opponent.username}`);
     } else {
       // Add to waiting list
-      waitingPlayers.push(socket);
+      waitingPlayers.push({ ...socket, username });
       socket.emit('waiting');
-      console.log('Player added to waiting list');
+      console.log('Player added to waiting list:', username);
     }
   });
 
@@ -110,8 +173,8 @@ io.on('connection', (socket) => {
     }
     
     // Validate it's the player's turn
-    const isWhite = socket.id === game.white;
-    const isBlack = socket.id === game.black;
+    const isWhite = socket.id === game.white.socketId;
+    const isBlack = socket.id === game.black.socketId;
     
     if ((game.currentTurn === 'white' && !isWhite) || 
         (game.currentTurn === 'black' && !isBlack)) {
@@ -132,10 +195,10 @@ io.on('connection', (socket) => {
     const game = games.get(gameId);
     if (!game) return;
     
-    const winner = socket.id === game.white ? game.black : game.white;
+    const winner = socket.id === game.white.socketId ? game.black : game.white;
     io.to(gameId).emit('gameOver', { 
       reason: 'resignation', 
-      winner 
+      winner: winner.username
     });
     
     games.delete(gameId);
@@ -143,7 +206,7 @@ io.on('connection', (socket) => {
   });
 
   socket.on('disconnect', () => {
-    console.log('User disconnected:', socket.id);
+    console.log('User disconnected:', socket.id, username ? `(${username})` : '(guest)');
     
     // Remove from waiting list
     const waitingIndex = waitingPlayers.findIndex(p => p.id === socket.id);
@@ -154,9 +217,9 @@ io.on('connection', (socket) => {
     
     // Handle active games
     games.forEach((game, gameId) => {
-      if (game.white === socket.id || game.black === socket.id) {
-        const opponent = game.white === socket.id ? game.black : game.white;
-        io.to(opponent).emit('opponentDisconnected');
+      if (game.white.socketId === socket.id || game.black.socketId === socket.id) {
+        const opponent = game.white.socketId === socket.id ? game.black : game.white;
+        io.to(opponent.socketId).emit('opponentDisconnected');
         games.delete(gameId);
         console.log(`Game ${gameId} ended due to disconnection`);
       }
@@ -195,6 +258,10 @@ app.get('/', (req, res) => {
     version: '1.0.0',
     endpoints: {
       health: '/health',
+      register: '/api/auth/register',
+      login: '/api/auth/login',
+      logout: '/api/auth/logout',
+      me: '/api/auth/me',
       socket: 'ws://localhost:3000'
     }
   });
