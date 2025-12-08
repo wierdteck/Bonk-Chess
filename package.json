@@ -1,0 +1,27 @@
+{
+  "name": "bonk-chess",
+  "version": "1.0.0",
+  "description": "Bonk Chess - A multiplayer chess game",
+  "private": true,
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "npm run dev --workspace=@bonk-chess/server & npm run dev --workspace=@bonk-chess/client",
+    "dev:server": "npm run dev --workspace=@bonk-chess/server",
+    "dev:client": "npm run dev --workspace=@bonk-chess/client",
+    "build": "npm run build --workspace=@bonk-chess/client",
+    "install:all": "npm install && npm install --workspaces"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/wierdteck/Bonk-Chess.git"
+  },
+  "keywords": ["chess", "multiplayer", "game"],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/wierdteck/Bonk-Chess/issues"
+  },
+  "homepage": "https://github.com/wierdteck/Bonk-Chess#readme"
+}
