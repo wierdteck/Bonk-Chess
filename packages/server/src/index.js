@@ -6,9 +6,13 @@ import session from 'express-session';
 import RedisStore from 'connect-redis';
 import { registerUser, loginUser, getUserById } from './auth.js';
 import { redis } from '../db/redis.js';
+import { applyMove } from './chess/gameLogic.js';
+import { initializeBoard } from './chess/initializeBoard.js';
+import { getAllMatchesIds, createMatch, getMatch, joinMatch, makeMatchMove, resignMatch, endMatch, listAvailableMatches } from './chess/gameManager.js';
 
 const app = express();
 const httpServer = createServer(app);
+
 
 // CORS configuration
 const corsOptions = {
@@ -108,138 +112,183 @@ app.get('/api/auth/me', async (req, res) => {
   });
 });
 
-// Socket.IO connection handler
 io.on('connection', (socket) => {
+  broadcastLobby();
   const session = socket.request.session;
-  const username = session?.username;
-  
-  console.log('User connected:', socket.id, username ? `(${username})` : '(guest)');
+  const username = session?.username || 'guest';
 
-  socket.on('findGame', () => {
-    if (!username) {
-      socket.emit('error', 'Must be logged in to play');
-      return;
+  console.log(`User connected: ${socket.id} ${username !== 'guest' ? `(${username})` : ''}`);
+  socket.on('request-lobby', () => {
+    console.log("Lobby requested by:", socket.id);
+    broadcastLobby();
+  });
+
+  // --------------------
+  // CREATE GAME
+  // --------------------
+  socket.on('createGame', ({ side , player}, callback) => {
+    console.log(`createGame received from ${socket.id} with side: ${side}`);
+    const gameId = `${player}`;
+    const timeControl = { initialSeconds: 5 * 60, incrementSeconds: 0 }; // 5-min default
+    createMatch({ id: gameId, socketId: socket.id, username: player, side, io, timeControl });
+
+    socket.join(gameId);
+    console.log(`Game created with ID ${gameId} by ${socket.id}`);
+    if (typeof callback === 'function') {
+      callback({ gameId, color: side });
     }
-    
-    console.log('Player looking for game:', username);
-    
-    if (waitingPlayers.length > 0) {
-      // Match with waiting player
-      const opponent = waitingPlayers.shift();
-      const gameId = `game-${Date.now()}`;
-      
-      const game = {
-        id: gameId,
-        white: { socketId: socket.id, username },
-        black: { socketId: opponent.id, username: opponent.username },
-        board: initializeBoard(),
-        currentTurn: 'white',
-        moveHistory: []
-      };
-      
-      games.set(gameId, game);
-      
+    broadcastLobby();
+  });
+
+  // -------------------- not used yet
+  // FIND GAME (join waiting player)
+  // --------------------
+  // socket.on('findGame', () => {
+  //   if (!username || username === 'guest') {
+  //     socket.emit('error', 'Must be logged in to play');
+  //     return;
+  //   }
+
+  //   console.log(`Player looking for game: ${username}`);
+
+  //   if (waitingPlayers.length > 0) {
+  //     const opponent = waitingPlayers.shift();
+  //     const gameId = `game_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
+  //     const game = {
+  //       id: gameId,
+  //       white: { socketId: socket.id, username },
+  //       black: { socketId: opponent.id, username: opponent.username },
+  //       board: initializeBoard(),
+  //       currentTurn: 'white',
+  //       moveHistory: [],
+  //       gameOver: false
+  //     };
+
+  //     games.set(gameId, game);
+
+  //     socket.join(gameId);
+  //     opponent.join(gameId);
+
+  //     // Notify both players
+  //     socket.emit('gameStart', { gameId, color: 'white', opponent: opponent.username });
+  //     opponent.emit('gameStart', { gameId, color: 'black', opponent: username });
+
+  //     io.to(gameId).emit('gameState', game);
+  //     console.log(`Game started: ${gameId} - ${username} vs ${opponent.username}`);
+  //   } else {
+  //     waitingPlayers.push({ ...socket, username });
+  //     socket.emit('waiting');
+  //     console.log(`Player added to waiting list: ${username}`);
+  //   }
+  // });
+
+  // --------------------
+  // JOIN GAME
+  // --------------------
+  socket.on("join-game", ({ gameId, username }) => {
+    // Mirror to new joinGame API
+    socket.emit('joinGame', { gameId, side: null, username });
+  });
+  socket.on("joinGame", ({ gameId, side, username}, callback) => {
+    const match = getMatch(gameId);
+    console.log(username, "joining game:", gameId);
+    if (!match) {
+      // Create new match with this player (if gameId is custom)
+      const newMatch = joinMatch({ id: gameId, socketId: socket.id, username, side, io });
       socket.join(gameId);
-      opponent.join(gameId);
-      
-      socket.emit('gameStart', { 
-        gameId, 
-        color: 'white',
-        opponent: opponent.username
-      });
-      
-      opponent.emit('gameStart', { 
-        gameId, 
-        color: 'black',
-        opponent: username
-      });
-      
-      io.to(gameId).emit('gameState', game);
-      
-      console.log(`Game started: ${gameId} - ${username} vs ${opponent.username}`);
-    } else {
-      // Add to waiting list
-      waitingPlayers.push({ ...socket, username });
-      socket.emit('waiting');
-      console.log('Player added to waiting list:', username);
-    }
-  });
-
-  socket.on('move', ({ gameId, move }) => {
-    const game = games.get(gameId);
-    if (!game) {
-      socket.emit('error', 'Game not found');
+      io.to(socket.id).emit('game-init', newMatch.getState());
+      if (typeof callback === 'function') {
+        callback({ success: true, created: true }); // for new match
+      }
       return;
     }
-    
-    // Validate it's the player's turn
-    const isWhite = socket.id === game.white.socketId;
-    const isBlack = socket.id === game.black.socketId;
-    
-    if ((game.currentTurn === 'white' && !isWhite) || 
-        (game.currentTurn === 'black' && !isBlack)) {
-      socket.emit('error', 'Not your turn');
-      return;
-    }
-    
-    // Apply move (basic implementation - add validation later)
-    game.moveHistory.push(move);
-    game.currentTurn = game.currentTurn === 'white' ? 'black' : 'white';
-    
-    // Broadcast move to both players
-    io.to(gameId).emit('move', move);
-    io.to(gameId).emit('gameState', game);
-  });
 
-  socket.on('resign', ({ gameId }) => {
-    const game = games.get(gameId);
-    if (!game) return;
-    
-    const winner = socket.id === game.white.socketId ? game.black : game.white;
-    io.to(gameId).emit('gameOver', { 
-      reason: 'resignation', 
-      winner: winner.username
+    // Join existing
+    joinMatch({ id: gameId, socketId: socket.id, username, side, io });
+    socket.join(gameId);
+
+    // Redirect both players to the actual game
+    const players = [match.white, match.black].filter(Boolean);
+    players.forEach(p => {
+      io.to(p.socketId).emit("redirect-to-game", { gameId });
     });
-    
-    games.delete(gameId);
-    console.log(`Game ${gameId} ended by resignation`);
+
+    // Send initial state
+    io.to(gameId).emit('game-init', match.getState());
+    broadcastLobby();
+    if (typeof callback === 'function') {
+      callback({ success: true });
+    }
   });
 
-  socket.on('disconnect', () => {
-    console.log('User disconnected:', socket.id, username ? `(${username})` : '(guest)');
-    
-    // Remove from waiting list
-    const waitingIndex = waitingPlayers.findIndex(p => p.id === socket.id);
-    if (waitingIndex !== -1) {
-      waitingPlayers.splice(waitingIndex, 1);
-      console.log('Removed from waiting list');
+
+  // --------------------
+  // MAKE MOVE
+  // --------------------
+  socket.on("make-move", ({ gameId, move }) => {
+    socket.emit('move', { gameId, move });
+  });
+  socket.on('move', ({ gameId, move }) => {
+    const match = getMatch(gameId);
+    if (!match || match.gameOver) {
+      socket.emit('error', 'Game not found or already over');
+      return;
     }
-    
-    // Handle active games
+    const res = makeMatchMove({ id: gameId, socketId: socket.id, move });
+    if (res.error) {
+      socket.emit('error', res.error);
+      return;
+    }
+    // match emits gameState internally
+  });
+
+  // --------------------
+  // RESIGN GAME
+  // --------------------
+  socket.on('resign', ({ gameId }) => {
+    const match = getMatch(gameId);
+    if (!match) return;
+    const winner = match.white?.socketId === socket.id ? match.black?.username : match.white?.username;
+    match.resign(socket.id);
+    endMatch({ id: gameId });
+    io.to(gameId).emit('gameOver', { reason: 'resignation', winner: winner || 'unknown' });
+  });
+
+  // --------------------
+  // DISCONNECT HANDLING
+  // --------------------
+  socket.on('disconnect', () => {
+    // Remove from waitingPlayers
+    const waitingIndex = waitingPlayers.findIndex(p => p.id === socket.id);
+    if (waitingIndex !== -1) waitingPlayers.splice(waitingIndex, 1);
+
+    // Clean up matches: resign or remove player
     games.forEach((game, gameId) => {
-      if (game.white.socketId === socket.id || game.black.socketId === socket.id) {
-        const opponent = game.white.socketId === socket.id ? game.black : game.white;
-        io.to(opponent.socketId).emit('opponentDisconnected');
-        games.delete(gameId);
-        console.log(`Game ${gameId} ended due to disconnection`);
+      // (This part uses the previous inline system. In the new system we loop matches)
+    });
+
+    // cleanup new system matches
+    const matchIds = Array.from(getAllMatchesIds ? getAllMatchesIds() : []).map(i => i); // if getAllMatchesIds exists
+    matchIds.forEach((id) => {
+      const match = getMatch(id);
+      if (!match) return;
+      if (match.white?.socketId === socket.id || match.black?.socketId === socket.id) {
+        const opponent = match.white?.socketId === socket.id ? match.black : match.white;
+        if (opponent?.socketId) io.to(opponent.socketId).emit('opponentDisconnected');
+        resignMatch({ id, socketId: socket.id }); // treat as resignation / game ended
       }
     });
+
+    broadcastLobby();
   });
 });
 
-// Initialize chess board
-function initializeBoard() {
-  return [
-    ['r', 'n', 'b', 'q', 'k', 'b', 'n', 'r'],
-    ['p', 'p', 'p', 'p', 'p', 'p', 'p', 'p'],
-    [null, null, null, null, null, null, null, null],
-    [null, null, null, null, null, null, null, null],
-    [null, null, null, null, null, null, null, null],
-    [null, null, null, null, null, null, null, null],
-    ['P', 'P', 'P', 'P', 'P', 'P', 'P', 'P'],
-    ['R', 'N', 'B', 'Q', 'K', 'B', 'N', 'R']
-  ];
+function broadcastLobby() {
+  const available = listAvailableMatches();
+  io.emit('lobby-update', available);
 }
+
 
 // Health check endpoint
 app.get('/health', (req, res) => {

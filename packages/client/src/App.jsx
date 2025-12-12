@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import Login from './components/Login';
 import Register from './components/Register';
 import Game from './components/Game';
+import ChessGame from './components/ChessGame';
 
 function App() {
   const [user, setUser] = useState(null);
@@ -46,6 +47,11 @@ function App() {
   return (
     <BrowserRouter>
       <Routes>
+        <Route 
+          path="/chess/:gameId"
+          element={user ? <ChessGame user={user} /> : <Navigate to="/login" replace />}
+        />
+
         <Route 
           path="/login" 
           element={

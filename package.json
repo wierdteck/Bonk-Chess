@@ -29,6 +29,13 @@
   },
   "homepage": "https://github.com/wierdteck/Bonk-Chess#readme",
   "dependencies": {
-    "dotenv": "^17.2.3"
+    "chess.js": "^1.4.0",
+    "chessboardjsx": "^2.4.7",
+    "cors": "^2.8.5",
+    "dotenv": "^17.2.3",
+    "express": "^5.2.1",
+    "socket.io": "^4.8.1",
+    "socket.io-client": "^4.8.1",
+    "uuid": "^13.0.0"
   }
 }
