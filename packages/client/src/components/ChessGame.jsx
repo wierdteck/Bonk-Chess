@@ -22,51 +22,58 @@ function ChessGame({ user }) {
 
   useEffect(() => {
     if (!gameId) return;
-    socket.emit("joinGame", { gameId });
 
-    socket.on("game-init", ({ board, currentTurn, white, black }) => {
-      setBoard(board);
-      setTurn(currentTurn || 'white');
-      if (white?.username === user) setColor('white');
-      if (black?.username === user) setColor('black');
+    socket.emit('joinGame', { gameId });
+    
+    socket.on('getName', (callback) => {
+      callback(user);
     });
-
-    socket.on("gameState", (state) => {
+    
+    socket.on('game-init', (state) => {
       setBoard(state.board);
       setTurn(state.currentTurn);
-      setGameOver(state.gameOver);
+      setColor(state.white?.username === user ? 'white' : 'black');
     });
 
-    socket.on("timerUpdate", setTimers);
-    socket.on("gameOver", setGameOver);
-    socket.on("opponentDisconnected", () => setGameOver({ reason: 'opponent_disconnected', winner: 'you' }));
+    socket.on('gameOver', ({reason, winner}) => {
+      console.log("Game Over", reason, winner);
+      setGameOver({reason, winner});
+    });
+
+    socket.on('gameState', (state) => {
+      setBoard(state.board);
+      setTurn(state.currentTurn);
+      // setGameOver(state.gameOver);
+    });
+
+    socket.on('noMatch', (reason) => {
+      alert(reason, " returning to lobby");
+      navigate('/lobby');
+    });
 
     return () => {
-      socket.emit("leave-game", { gameId });
-      socket.off("game-init");
-      socket.off("gameState");
-      socket.off("timerUpdate");
-      socket.off("gameOver");
-      socket.off("opponentDisconnected");
+      socket.off('game-init');
+      socket.off('gameState');
     };
   }, [gameId, user]);
 
-  const handleCellClick = (row, col) => {
+  const handleCellClick = (col, row) => {
     if (gameOver) return;
-
-    const piece = board[row][col];
+    // console.log("Clicked on cell:", row, col);
     if (!selected) {
-      const isMyPiece = (color === 'white' && piece && piece === piece.toUpperCase()) ||
-                        (color === 'black' && piece && piece === piece.toLowerCase());
-      if (isMyPiece) setSelected([row, col]);
+      if (board[row][col].color === color) setSelected([col, row]);
       return;
     }
+    // const piece = selected ? board[selected[1]][selected[0]] : null;
 
-    socket.emit("move", { gameId, move: { from: selected, to: [row, col] } });
+    socket.emit("move", { gameId, move: { from: [selected[1], selected[0]], to: [row, col] } });
     setSelected(null);
   };
 
-  const resign = () => socket.emit("resign", { gameId });
+  const resign = () => {
+    socket.emit("resign", { gameId })
+    navigate('/lobby');
+  };
 
   const formatTime = (s) => {
     const m = Math.floor(s / 60).toString().padStart(2, '0');
@@ -91,7 +98,16 @@ function ChessGame({ user }) {
 
       <div className="game-main">
         <div className="game-content">
-          <ChessBoard board={board} selected={selected} onCellClick={handleCellClick} />
+          <ChessBoard
+            board={board.map(row => row.map(cell => {
+              if (!cell) return null;
+              // Uppercase for white, lowercase for black
+              return cell.color === 'white' ? cell.type.toUpperCase() : cell.type;
+            }))}
+            selected={selected}
+            onCellClick={handleCellClick}
+            color={color}
+          />
           <button className="play-button" onClick={resign} style={{ marginTop: '1rem' }}>Resign</button>
         </div>
       </div>
@@ -108,18 +124,36 @@ function ChessGame({ user }) {
   );
 }
 
-function ChessBoard({ board, onCellClick, selected }) {
+function ChessBoard({ board, onCellClick, selected, color }) {
+  // Flip board for black view
+  const tempBoard =
+    color === "black"
+      ? [...board].map(row => [...row].reverse()).reverse()
+      : board;
+  const orientedBoard = tempBoard[0].map((_, colIndex) =>
+    tempBoard.map(row => row[colIndex])
+  );
   return (
     <div className="chess-board">
-      {board.map((row, i) => (
+      {orientedBoard.map((row, i) => (
         <div key={i} className="chess-row">
           {row.map((cell, j) => {
-            const isSelected = selected && selected[0] === i && selected[1] === j;
+            const isSelected =
+              selected &&
+              selected[0] === (color === "black" ? 7 - i : i) &&
+              selected[1] === (color === "black" ? 7 - j : j);
+
             return (
               <div
                 key={j}
-                className={`chess-cell ${isSelected ? 'selected' : ''} ${((i + j) % 2 === 0 ? 'light-cell' : 'dark-cell')}`}
-                onClick={() => onCellClick(i, j)}
+                className={`chess-cell ${isSelected ? "selected" : ""} ${
+                  (i + j) % 2 === 0 ? "light-cell" : "dark-cell"
+                }`}
+                onClick={() => {
+                  const trueRow = color === "black" ? 7 - i : i;
+                  const trueCol = color === "black" ? 7 - j : j;
+                  onCellClick(trueRow, trueCol);
+                }}
               >
                 {PIECES[cell] || ""}
               </div>
@@ -130,5 +164,6 @@ function ChessBoard({ board, onCellClick, selected }) {
     </div>
   );
 }
+
 
 export default ChessGame;

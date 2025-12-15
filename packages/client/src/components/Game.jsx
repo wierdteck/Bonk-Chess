@@ -57,9 +57,9 @@ function Game({ user, onLogout }) {
   // Join an existing game (auto-assign remaining side)
   const joinGame = (id, availableSide) => {
 
-    console.log("Joining game:", id, "as", availableSide);
+    console.log("Joining game:", id, "as", availableSide, "for user", user);
 
-    socket.emit("joinGame", { gameId: id, side: availableSide, user}, (response) => {
+    socket.emit("joinGame", { gameId: id, side: availableSide, username:user}, (response) => {
       if (response.error) {
         alert("Error joining game: " + response.error);
         return;

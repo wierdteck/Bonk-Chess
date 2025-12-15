@@ -5,11 +5,13 @@ import { GameTimers } from './timers.js';
 export class Match {
   constructor({ id, white = null, black = null, io, timeControl = { initialSeconds: 300, incrementSeconds: 0 } }) {
     this.id = id;
-    this.white = white; // { socketId, username }
+    this.white = white;
     this.black = black;
     this.io = io;
+
     this.board = initializeBoard();
     this.currentTurn = 'white';
+    this.enPassantTarget = null; // added
     this.moveHistory = [];
     this.gameOver = false;
     this.winner = null;
@@ -19,11 +21,8 @@ export class Match {
       gameId: id,
       initialSeconds: timeControl.initialSeconds,
       incrementSeconds: timeControl.incrementSeconds,
-      onTick: (gameId, timers) => {
-        this.io.to(gameId).emit('timerUpdate', timers);
-      },
+      onTick: (gameId, timers) => this.io.to(gameId).emit('timerUpdate', timers),
       onTimeout: (gameId, color) => {
-        const loser = color;
         const winner = color === 'white' ? 'black' : 'white';
         this._endGame({ winner, reason: 'timeout' });
       }
@@ -32,25 +31,20 @@ export class Match {
 
   startIfReady() {
     if (this.white && this.black && !this.timers.active && !this.gameOver) {
-      // Start clocks; white typically moves first
       this.timers.start('white');
       this.io.to(this.id).emit('game-started', this.getState());
     }
   }
 
   addPlayer({ socketId, username, side }) {
-    if (side === 'white') {
-      this.white = { socketId, username };
-    } else {
-      this.black = { socketId, username };
-    }
+    if (side === 'white') this.white = { socketId, username };
+    else this.black = { socketId, username };
     this.startIfReady();
   }
 
   removePlayer(socketId) {
     if (this.white?.socketId === socketId) this.white = null;
     if (this.black?.socketId === socketId) this.black = null;
-    // stop timers
     this.timers.stop();
   }
 
@@ -64,17 +58,23 @@ export class Match {
       return { error: 'Not your turn' };
     }
 
-    // Basic move application
-    const result = applyMove(this, move);
+    // Apply move
+    const result = applyMove({
+      board: this.board,
+      currentTurn: this.currentTurn,
+      enPassantTarget: this.enPassantTarget
+    }, move);
+
     if (result.error) return result;
 
-    // store history and switch timers
-    this.moveHistory.push(move);
+    // Update match state
+    this.board = result.board;
     this.currentTurn = result.turn;
-    // Switch timers (adds increment to the player who moved)
+    this.enPassantTarget = result.enPassantTarget || null;
+
+    this.moveHistory.push(move);
     this.timers.switchTurn();
 
-    // Broadcast new state
     this.io.to(this.id).emit('move', move);
     this.io.to(this.id).emit('gameState', this.getState());
     return { success: true };
@@ -91,7 +91,10 @@ export class Match {
     this.winner = winner;
     this.reason = reason;
     this.timers.stop();
-    this.io.to(this.id).emit('gameOver', { winner: winner === 'white' ? this.white?.username : this.black?.username, reason });
+    this.io.to(this.id).emit('gameOver', {
+      winner: winner === 'white' ? this.white?.username : this.black?.username,
+      reason
+    });
   }
 
   getState() {
@@ -101,6 +104,7 @@ export class Match {
       black: this.black && { username: this.black.username },
       board: this.board,
       currentTurn: this.currentTurn,
+      enPassantTarget: this.enPassantTarget, // expose
       moveHistory: this.moveHistory,
       gameOver: this.gameOver,
       winner: this.winner,
