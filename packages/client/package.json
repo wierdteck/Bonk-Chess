@@ -19,6 +19,7 @@
     "socket.io-client": "^4.8.1"
   },
   "devDependencies": {
+    "rollup": "^4.20.0",
     "@eslint/js": "^9.39.1",
     "@types/react": "^19.2.5",
     "@types/react-dom": "^19.2.3",
