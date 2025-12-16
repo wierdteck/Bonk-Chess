@@ -3,11 +3,8 @@ import pkg from 'pg';
 const { Pool } = pkg;
 
 export const pg = new Pool({
-  host: process.env.PG_HOST || 'localhost',
-  port: process.env.PG_PORT || 5432,
-  user: process.env.PG_USER || 'postgres',
-  password: process.env.PG_PASSWORD || 'password',
-  database: process.env.PG_DATABASE || 'bonk_chess'
+  connectionString: process.env.DATABASE_URL,
+  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
 });
 
 // Test connection and handle errors
