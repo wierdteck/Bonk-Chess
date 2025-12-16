@@ -269,7 +269,7 @@ app.get('/', (req, res) => {
       login: '/api/auth/login',
       logout: '/api/auth/logout',
       me: '/api/auth/me',
-      socket: 'ws://localhost:3000'
+      socket: 'i dont even know where'
     }
   });
 });
