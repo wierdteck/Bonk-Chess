@@ -9,7 +9,9 @@ import { redis } from '../db/redis.js';
 import { applyMove } from './chess/gameLogic.js';
 import { initializeBoard } from './chess/initializeBoard.js';
 import { getAllMatchesIds, createMatch, getMatch, joinMatch, makeMatchMove, resignMatch, endMatch, listAvailableMatches } from './chess/gameManager.js';
+import dotenv from 'dotenv';
 
+dotenv.config();
 const app = express();
 const httpServer = createServer(app);
 
