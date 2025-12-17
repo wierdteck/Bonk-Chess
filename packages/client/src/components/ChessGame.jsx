@@ -17,7 +17,7 @@ function ChessGame({ user }) {
   const [turn, setTurn] = useState("white");
   const [color, setColor] = useState(null);
   const [selected, setSelected] = useState(null);
-  const [timers, setTimers] = useState({ whiteSeconds: 0, blackSeconds: 0 });
+  const [timers, setTimers] = useState({whiteSeconds: 0,  blackSeconds: 0,  active: 'white',});
   const [gameOver, setGameOver] = useState(null);
 
   useEffect(() => {
@@ -33,7 +33,7 @@ function ChessGame({ user }) {
       setTimers({
         whiteSeconds: timers.whiteSeconds,
         blackSeconds: timers.blackSeconds,
-        active: 'white',
+        active: timers.active,
       });
       setTurn(timers.active);
     });
