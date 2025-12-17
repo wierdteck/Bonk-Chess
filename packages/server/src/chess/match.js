@@ -32,6 +32,7 @@ export class Match {
   startIfReady() {
     if (this.white && this.black && !this.timers.active && !this.gameOver) {
       this.timers.start('white');
+      this.io.to(this.id).emit('game-started', this.getState());
     }
   }
 

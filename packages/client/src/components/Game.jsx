@@ -10,15 +10,15 @@ const TIME_CONTROLS = [
   { label: '10 + 5', initialSeconds: 600, incrementSeconds: 5 },
 ];
 
+const [timeControl, setTimeControl] = useState(TIME_CONTROLS[2]); // default 5+0
+
+
 function Game({ user, onLogout }) {
   const navigate = useNavigate();
-
-  const [timeControl, setTimeControl] = useState(TIME_CONTROLS[2]);
   const [selectedSide, setSelectedSide] = useState(null); // only for new game
   const [gameId, setGameId] = useState(null);
   const [availableGames, setAvailableGames] = useState([]); // Active games in lobby
   // console.log(availableGames);
-  
   useEffect(() => {
     // Receive real-time lobby updates
     socket.on('lobby-update', (games) => setAvailableGames(games));
@@ -145,7 +145,9 @@ function Game({ user, onLogout }) {
                 let availableSide = game.color;
                 return (
                   <li key={game.id} className="game-item">
-                    <span className="game-id">Player: {game.id}</span>
+                    <span className="game-id">
+                      Player: {game.id} • {game.timeControl.label}
+                    </span>
 
                     {isUsersGame ? (
                       <button className="join-button disabled" disabled>
