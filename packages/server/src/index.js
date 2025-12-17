@@ -128,25 +128,17 @@ io.on('connection', (socket) => {
   // --------------------
   // CREATE GAME
   // --------------------
-  socket.on('createGame', ({ side, player, timeControl }, callback) => {
+  socket.on('createGame', ({ side , player}, callback) => {
+    console.log(`createGame received from ${socket.id} with side: ${side}`);
     const gameId = `${player}`;
-
-    const tc = timeControl || {
-      initialSeconds: 300,
-      incrementSeconds: 0
-    };
-
-    createMatch({
-      id: gameId,
-      socketId: socket.id,
-      username: player,
-      side,
-      io,
-      timeControl: tc
-    });
+    const timeControl = { initialSeconds: 5 * 60, incrementSeconds: 0 }; // 5-min default
+    createMatch({ id: gameId, socketId: socket.id, username: player, side, io, timeControl });
 
     socket.join(gameId);
-    callback?.({ gameId, color: side });
+    console.log(`Game created with ID ${gameId} by ${socket.id}`);
+    if (typeof callback === 'function') {
+      callback({ gameId, color: side });
+    }
     broadcastLobby();
   });
 

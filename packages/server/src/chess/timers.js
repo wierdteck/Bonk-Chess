@@ -1,7 +1,6 @@
 export class GameTimers {
   constructor({ gameId, initialSeconds = 600, incrementSeconds = 5, onTick, onTimeout }) {
     this.gameId = gameId;
-    this.initialSeconds = initialSeconds;
     this.whiteSeconds = initialSeconds;
     this.blackSeconds = initialSeconds;
     this.increment = incrementSeconds;
