@@ -33,7 +33,9 @@ function ChessGame({ user }) {
       setTimers({
         whiteSeconds: timers.whiteSeconds,
         blackSeconds: timers.blackSeconds,
+        active: 'white',
       });
+      setTurn(timers.active);
     });
     
     socket.on('game-init', (state) => {
@@ -101,8 +103,12 @@ function ChessGame({ user }) {
         <div className="user-info">
           <span>You are: <strong>{color}</strong></span>
           <span>Turn: <strong>{turn}</strong></span>
-          <span>White: {formatTime(timers.whiteSeconds)}</span>
-          <span>Black: {formatTime(timers.blackSeconds)}</span>
+          <span style={{ fontWeight: timers.active === 'white' ? 'bold' : 'normal' }}>
+            White: {formatTime(timers.whiteSeconds)}
+          </span>
+          <span style={{ fontWeight: timers.active === 'black' ? 'bold' : 'normal' }}>
+            Black: {formatTime(timers.blackSeconds)}
+          </span>
           <button className="logout-btn" onClick={() => navigate('/lobby')}>Back to Lobby</button>
         </div>
       </div>
