@@ -130,7 +130,11 @@ io.on('connection', (socket) => {
   // --------------------
   // CREATE GAME
   // --------------------
-  socket.on('createGame', ({ side, player, timeControl }, callback) => {
+  socket.on('createGame', ({ 
+    side, 
+    player, 
+    timeControl, 
+  }, callback) => {
     const gameId = `${player}`;
 
     const tc = timeControl || {
