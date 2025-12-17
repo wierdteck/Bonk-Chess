@@ -3,6 +3,16 @@ import { useNavigate } from 'react-router-dom';
 import socket from '../socket';
 import './Game.css';
 
+const TIME_CONTROLS = [
+  { label: '1 + 0', initialSeconds: 60, incrementSeconds: 0 },
+  { label: '3 + 2', initialSeconds: 180, incrementSeconds: 2 },
+  { label: '5 + 0', initialSeconds: 300, incrementSeconds: 0 },
+  { label: '10 + 5', initialSeconds: 600, incrementSeconds: 5 },
+];
+
+const [timeControl, setTimeControl] = useState(TIME_CONTROLS[2]); // default 5+0
+
+
 function Game({ user, onLogout }) {
   const navigate = useNavigate();
   const [selectedSide, setSelectedSide] = useState(null); // only for new game
@@ -44,7 +54,7 @@ function Game({ user, onLogout }) {
 
     socket.emit(
       "createGame",
-      { side: selectedSide, player: user },
+      { side: selectedSide, player: user, timeControl},
       ({ gameId, color }) => {
         setGameId(gameId);
         // alert(`Game created! You are playing as ${color}. Game ID: ${gameId}`);
@@ -105,6 +115,20 @@ function Game({ user, onLogout }) {
                 <div className="label">Play as Black</div>
               </div>
             </div>
+            <div className="time-control">
+              <h3>Time Control</h3>
+              <div className="time-options">
+                {TIME_CONTROLS.map(tc => (
+                  <button
+                    key={tc.label}
+                    className={`time-button ${timeControl.label === tc.label ? 'selected' : ''}`}
+                    onClick={() => setTimeControl(tc)}
+                  >
+                    {tc.label}
+                  </button>
+                ))}
+              </div>
+            </div>
             <button className="play-button" onClick={startGame}>
               ⚔️ Start New Game ⚔️
             </button>
@@ -121,7 +145,9 @@ function Game({ user, onLogout }) {
                 let availableSide = game.color;
                 return (
                   <li key={game.id} className="game-item">
-                    <span className="game-id">Player: {game.id}</span>
+                    <span className="game-id">
+                      Player: {game.id} • {game.timeControl.label}
+                    </span>
 
                     {isUsersGame ? (
                       <button className="join-button disabled" disabled>
