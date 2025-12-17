@@ -118,15 +118,17 @@ function Game({ user, onLogout }) {
             <div className="time-control">
               <h3>Time Control</h3>
               <div className="time-options">
-                {TIME_CONTROLS.map(tc => (
-                  <button
-                    key={tc.label}
-                    className={`time-button ${timeControl.label === tc.label ? 'selected' : ''}`}
-                    onClick={() => setTimeControl(tc)}
-                  >
-                    {tc.label}
-                  </button>
-                ))}
+                <div className="time-control-selection">
+                  {TIME_CONTROLS.map((tc, idx) => (
+                    <div
+                      key={idx}
+                      className={`time-control-option ${selectedTimeControl === idx ? 'selected' : ''}`}
+                      onClick={() => setSelectedTimeControl(idx)}
+                    >
+                      {tc.label}
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
             <button className="play-button" onClick={startGame}>
