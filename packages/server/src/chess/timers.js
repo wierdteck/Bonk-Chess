@@ -1,5 +1,5 @@
 export class GameTimers {
-  constructor({ gameId, initialSeconds = 300, incrementSeconds = 0, onTick, onTimeout }) {
+  constructor({ gameId, initialSeconds = 600, incrementSeconds = 5, onTick, onTimeout }) {
     this.gameId = gameId;
     this.whiteSeconds = initialSeconds;
     this.blackSeconds = initialSeconds;
