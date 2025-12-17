@@ -93,16 +93,27 @@ export function endMatch({ id }) {
 }
 
 export function listAvailableMatches() {
-  const available = [];
-  matches.forEach((m, id) => {
-    const count = [m.white, m.black].filter(Boolean).length;
-    if (!m.gameOver && count < 2) {
-      const color = !m.white ? 'white' : !m.black ? 'black' : null;
-      available.push({ id, color });
-    }
+  return Array.from(matches.values()).map(match => {
+    const availableSide =
+      match.white && !match.black ? 'black'
+      : match.black && !match.white ? 'white'
+      : null;
+
+    const initial = match.timers?.initialSeconds ?? 300;
+    const increment = match.timers?.increment ?? 0;
+
+    return {
+      id: match.id,
+      color: availableSide,
+      timeControl: {
+        initialSeconds: initial,
+        incrementSeconds: increment,
+        label: `${initial / 60} + ${increment}`
+      }
+    };
   });
-  return available;
 }
+
 export function getAllMatchesIds() {
   return Array.from(matches.keys());
 }

@@ -28,11 +28,23 @@ function ChessGame({ user }) {
     socket.on('getName', (callback) => {
       callback(user);
     });
+
+    socket.on('timerUpdate', (timers) => {
+      setTimers({
+        whiteSeconds: timers.whiteSeconds,
+        blackSeconds: timers.blackSeconds,
+      });
+    });
     
     socket.on('game-init', (state) => {
       setBoard(state.board);
       setTurn(state.currentTurn);
       setColor(state.white?.username === user ? 'white' : 'black');
+    });
+
+    socket.on('game-started', (state) => {
+      setBoard(state.board);
+      setTurn(state.currentTurn);
     });
 
     socket.on('gameOver', ({reason, winner}) => {
@@ -54,6 +66,11 @@ function ChessGame({ user }) {
     return () => {
       socket.off('game-init');
       socket.off('gameState');
+      socket.off('getName');
+      socket.off('gameOver');
+      socket.off('noMatch');
+      socket.off('timerUpdate');
+      socket.off('game-started');
     };
   }, [gameId, user]);
 
