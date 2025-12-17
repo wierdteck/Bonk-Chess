@@ -47,7 +47,9 @@ const io = new Server(httpServer, {
 });
 
 // Share session with Socket.IO
-io.engine.use(sessionMiddleware);
+io.use((socket, next) => {
+  sessionMiddleware(socket.request, {}, next);
+});
 
 // Game state
 const games = new Map();
@@ -145,10 +147,6 @@ io.on('connection', (socket) => {
   // --------------------
   // JOIN GAME
   // --------------------
-  socket.on("join-game", ({ gameId, username }) => {
-    // Mirror to new joinGame API
-    socket.emit('joinGame', { gameId, side: null, username });
-  });
   socket.on("joinGame", ({ gameId, side, username}, callback) => {
     const match = getMatch(gameId);
     // console.log(username, "joining game:", gameId);
@@ -279,5 +277,6 @@ const PORT = process.env.PORT || 3000;
 httpServer.listen(PORT, () => {
   console.log(`🚀 Bonk Chess server running on port ${PORT}`);
   console.log(`📡 Socket.IO ready for connections`);
-  console.log(`🏥 Health check available at http://localhost:${PORT}/health`);
+  const host = process.env.HOST || 'localhost';
+  console.log(`🏥 Health check available at http://${host}:${PORT}/health`);
 });
